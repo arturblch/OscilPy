@@ -6,29 +6,29 @@ import platform
 from json import load as json_load, dump as json_dump
 
 import visa
+from pyvisa.errors import VisaIOError
 import pyvisa
 from pyvisa.resources import MessageBasedResource
 
-import tkinter as tk
+from tkinter import *
 from tkinter import ttk
 
-from tkinter import filedialog as tkfiledialog
-from tkinter import messagebox as tkmessagebox
+from tkinter import filedialog
+from tkinter import messagebox
 
+
+SIZE = (650, 500)
+PROGRAM_NAME = "Oscil GUI"
 
 """ TODO: Finish settings ini file read/write
-========================================================
-COMMON CLASS OBJECTS
-========================================================
 """
-
-
 class SettingsControl(ttk.Frame):
-    def __init__(self, parent):
-        self.frame = tk.Toplevel(parent)
+    def __init__(self):
+        self.root = tk.Tk()
         self.setvar = tk.StringVar()
-        self.setvar.set(os.path.abspath('.') + "/settings.json")
+        self.root.title("Settings")
 
+        self.setvar.set(os.path.abspath('.') + "/settings.json")
         settings_list = ['start', 'stop', 'step']
         self.settings = {setting : None for setting in settings_list}
 
@@ -46,7 +46,7 @@ class SettingsControl(ttk.Frame):
             entries.update({field: ent})
         return entries
 
-    def init_save_path_form(self):
+    def init_path_form(self):
         self.setdesc = ttk.Label(self)
         self.setdesc["justify"] = tk.LEFT
         self.setdesc["text"] = "Settings path"
@@ -67,7 +67,7 @@ class SettingsControl(ttk.Frame):
         self.setreadbtn["command"] = self.write_config
 
     def path_dialog(self):
-        path = tkfiledialog.askdirectory()
+        path = filedialog.askdirectory()
 
         print(path)
         # file dialog returns a tuple for a path (?)
@@ -88,36 +88,6 @@ class SettingsControl(ttk.Frame):
 
     def show_window(self):
         pass
-"""
-========================================================
-SHELL WINDOW + SHELL WINDOW WIDGETS
-========================================================
-"""
-
-
-class ShellWindow(ttk.Frame):
-    def __init__(self, parent=None):
-        top = tk.Toplevel(parent)
-        ttk.Frame.__init__(top, parent)
-        self.initui()
-
-        # self.title("NPSO Visa Shell")
-
-    def initui(self):
-        self.demo = ttk.Label(self)
-        self.demo["text"] = "Demo label for testing"
-
-        self.demo.grid(row=0, column=0, sticky=tk.W + tk.E + tk.S + tk.N)
-
-        self.pack(side="top", fill="both", expand=True)
-
-
-"""
-========================================================
-MAIN WINDOW WIDGETS
-========================================================
-"""
-
 
 class FileOptions(ttk.Frame):
     def __init__(self, parent=None):
@@ -126,10 +96,10 @@ class FileOptions(ttk.Frame):
 
         # SAVEL PATH / DIRECTORY
         self.pathdesc = ttk.Label(self)
-        self.pathdesc["justify"] = tk.LEFT
+        self.pathdesc["justify"] = LEFT
         self.pathdesc["text"] = "Save path"
 
-        self.pathvar = tk.StringVar()
+        self.pathvar = StringVar()
 
         if platform.system() == "Windows":
             self.pathvar.set("C:/")
@@ -145,10 +115,10 @@ class FileOptions(ttk.Frame):
 
         # SAVE FILENAME
         self.filedesc = ttk.Label(self)
-        self.filedesc["justify"] = tk.LEFT
+        self.filedesc["justify"] = LEFT
         self.filedesc["text"] = "Filename"
 
-        self.filevar = tk.StringVar()
+        self.filevar = StringVar()
         self.filevar.set("Oscil_gui_" + time.strftime("%d_%m_%Y_") + "0.csv")
 
         self.fileentry = ttk.Entry(self)
@@ -159,19 +129,17 @@ class FileOptions(ttk.Frame):
         self.newnamebtn["command"] = self.updatefilename
 
         self.pathdesc.grid(row=0, column=0)
-        self.pathentry.grid(row=0, column=1, sticky=tk.E + tk.W)
-        self.pathbtn.grid(row=0, column=2)
+        self.pathentry.grid(row=0, column=1, sticky=E + W)
+        self.pathbtn.grid(row=0, column=2, sticky=E + W)
 
         self.filedesc.grid(row=1, column=0)
-        self.fileentry.grid(row=1, column=1, sticky=tk.E + tk.W)
-        self.newnamebtn.grid(row=1, column=2)
+        self.fileentry.grid(row=1, column=1, sticky=E + W)
+        self.newnamebtn.grid(row=1, column=2, sticky=E + W)
 
-        self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
-        self.columnconfigure(2, weight=1)
 
     def path_dialog(self):
-        path = tkfiledialog.askdirectory()
+        path = filedialog.askdirectory()
 
         print(path)
         # file dialog returns a tuple for a path (?)
@@ -188,7 +156,7 @@ class FileOptions(ttk.Frame):
 
 
 class InstanceControl(ttk.Frame):
-    def __init__(self, parent, dev_name, devices=None, refreshfunc=None, get_id=None, dlfunc=None):
+    def __init__(self, parent, dev_name, devices=None, refreshfunc=None, get_id=None, _open=None):
         ttk.Frame.__init__(self, parent)
         self.dev_name = dev_name
         # check devices arg
@@ -209,33 +177,41 @@ class InstanceControl(ttk.Frame):
         else:
             self.get_id_func = get_id
 
+        if _open == None:
+            print("ERROR: Unimplemented method `_open`")
+            raise NotImplementedError
+        else:
+            self.open_func = _open
+
         self.optiondesc = ttk.Label(self)
-        self.optiondesc["justify"] = tk.LEFT
+        self.optiondesc["justify"] = LEFT
         self.optiondesc["text"] = "Select " + self.dev_name
 
-        self.selected_option = tk.StringVar()
+        self.selected_option = StringVar()
         self.optionsui = ttk.Combobox(self)
-        # self.optionsui["width"] = 30
         self.optionsui["textvariable"] = self.selected_option
         self.optionsui["values"] = tuple(self.devices)
 
+        self.opbtn = ttk.Button(self)
+        self.opbtn["text"] = "Open"
+        self.opbtn["command"] = lambda : self.open_func(self.get_selection(), self.dev_name)
+
         self.idbtn = ttk.Button(self)
         self.idbtn["text"] = "Get ID"
-        self.idbtn["command"] = self.get_id
+        self.idbtn["command"] = lambda : self.get_id_func(self.get_selection(), self.dev_name)
 
         self.refreshbtn = ttk.Button(self)
         self.refreshbtn["text"] = "Refresh"
         self.refreshbtn["command"] = self.refreshfunc
 
         self.optiondesc.grid(row=0, column=0)
-        self.optionsui.grid(row=0, column=1, sticky=tk.E + tk.W)
-        self.idbtn.grid(row=0, column=2)
-        self.refreshbtn.grid(row=0, column=3)
+        self.optionsui.grid(row=0, column=1, sticky=EW)
+        self.opbtn.grid(row=0, column=2, sticky=EW)
+        self.idbtn.grid(row=0, column=3, sticky=EW)
+        self.refreshbtn.grid(row=0, column=4, sticky=EW)
 
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=1)
-        self.columnconfigure(3, weight=1)
+        self.columnconfigure(1, weight=2)
+
 
     def set_devices(self, devices):
         self.devices = devices
@@ -243,9 +219,6 @@ class InstanceControl(ttk.Frame):
 
     def get_selection(self):
         return self.selected_option.get()
-
-    def get_id(self):
-        self.get_id_func(self)
 
 
 class Toolbar(ttk.Frame):
@@ -264,17 +237,9 @@ class Toolbar(ttk.Frame):
         self.settingbtn["text"] = "Settings"
         self.settingbtn["command"] = self.open_settings
 
-        self.shellbtn = ttk.Button(self)
-        self.shellbtn["text"] = "Open Shell"
-        self.shellbtn["command"] = self.open_shell
-        # self.shellbtn["state"] = tk.DISABLED
-
         self.settingbtn.grid(row=0, column=0)
-        self.shellbtn.grid(row=0, column=1)
 
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        # self.columnconfigure(2, weight=1)
 
     def open_settings(self):
         settingwin = SettingsControl(self)
@@ -291,46 +256,53 @@ class Console(ttk.Frame):
 
         self.stdout = stdout
 
-        self.consoleui = tk.Text(self, width=50)
-        self.scrollbar = ttk.Scrollbar(
-            self, orient="vertical", command=self.consoleui.yview)
+        self.console_line = ttk.Entry(self)
+        self.console = Text(self, width=30)
+        self.console_scrol = ttk.Scrollbar(
+            self, orient="vertical", command=self.console.yview)
 
-        self.consoleui.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="left", fill="both")
+        self.command = Text(self, width=30)
+        self.comand_scrol = ttk.Scrollbar(
+            self, orient="vertical", command=self.command.yview)
+
+        self.console_line.pack(side="top", fill="both")
+
+        self.console.pack(side="left", fill="both", expand=True)
+        self.console_scrol.pack(side="left", fill="both")
+        self.command.pack(side="left", fill="both", expand=True)
+        self.comand_scrol.pack(side="left", fill="both")
 
     def txt(self, text):
         if self.stdout:
             print(text)
 
-        self.consoleui.insert(tk.END, text + '\n')
+        self.console.insert(END, text + '\n')
 
     def log(self, text):
         self.txt("LOG: " + text)
+
+    def func(self, text):
+        self.command.insert(END, text + '\n')
 
     def error(self, text):
         self.txt("ERROR: " + text)
 
 
-"""
-========================================================
-MAIN WINDOW
-========================================================
-"""
-
-
-class Oscil_GUI(ttk.Frame):
+class Oscil_GUI:
     def __init__(self, root, args=None):
-        ttk.Frame.__init__(self, root)
-
-        root.wm_title("Oscil GUI")
-        # root.resizable(width=False, height=False)
+        self.root = root
 
         self.rm = None
         self.stdout = False
 
+        self.need_devices = ['oscil', 'generator']
+        self.devices = {dev : None for dev in self.need_devices}
+        self.devices_ctrls = dict()
+
         self.argparse(args)
-        self.initui()
-        self.initserial()
+
+        self.init_gui()
+        self.init_serial()
 
     def argparse(self, args):
         if not args == None:
@@ -345,62 +317,90 @@ class Oscil_GUI(ttk.Frame):
                     elif args[i + 1].lower() == "false":
                         self.stout = False
 
-    def initui(self):
-        self.fileoptions = FileOptions(self)
-        self.oscil = InstanceControl(
-            self, 'oscil', refreshfunc=self.initserial, get_id=self.get_id())
-        self.generator = InstanceControl(
-            self, 'generator', refreshfunc=self.initserial, get_id=self.get_id())
-        self.toolbar = Toolbar(self, dlfunc=self.dl_picture)
-        self.console = Console(self, stdout=True)
+    def init_gui(self):
+        self.fileoptions = FileOptions(self.root)
+        for dev_name in self.need_devices:
+            self.devices_ctrls[dev_name] = InstanceControl(self.root, dev_name, refreshfunc=self.init_serial, get_id=self.get_id(), _open=self.open())
 
-        self.fileoptions.pack(side="top", fill="both", expand=True)
-        self.oscil.pack(side="top", fill="both", expand=True)
-        self.generator.pack(side="top", fill="both", expand=True)
-        self.toolbar.pack(side="top", fill="both", expand=True)
-        self.console.pack(side="top", fill="both", expand=True)
+        self.toolbar = Toolbar(self.root, dlfunc=self.dl_picture)
+        self.console = Console(self.root, stdout=True)
 
-        self.pack(side="top", fill="both", expand=True)
-        self.console.log("GUI initialization finished")
+        self.fileoptions.pack(side="top", fill="both")
+        for dev in self.devices_ctrls.values():
+            dev.pack(side="top", fill="both")
+        self.toolbar.pack(side="top", fill="both")
+        self.console.pack(side="top", fill="both")
 
-    def initserial(self):
+    def init_serial(self):
+        self.console.func('Refresh devices')
         try:
             if self.rm == None:
                 self.rm = visa.ResourceManager()
 
-            self.devices = self.rm.list_resources()
+            devices = self.rm.list_resources()
 
-            self.console.log("Found Devices:\n\t" + '\n\t'.join(self.devices))
-            self.oscil.set_devices(self.devices)
-            self.generator.set_devices(self.devices)
+            self.console.log("Found Devices:\n\t" + '\n\t'.join(devices))
+            for dev in self.devices_ctrls.values():
+                dev.set_devices(devices)
 
         except OSError:
             self.console.error("Cannot initialize serial")
 
-        finally:
-            self.console.log("Serial initialization finished")
-
     def get_id(self):
-        def wraper(child):
-            if child.get_selection():
+        def wraper(device, self_name):
+            self.console.func('Get ID')
+            if device:
                 try:
-                    if self.rm == None:
-                        self.rm = visa.ResourceManager()
+                    if self.devices[self_name]:
+                        response = self.devices[self_name].query("*IDN?")
+                        self.console.log("Device - "+ response.split(',')[1])
+                    else:
+                        if self.rm == None:
+                            self.rm = visa.ResourceManager()
 
-                    child.dev_instance = self.rm.open_resource(
-                        child.get_selection())
-                    self.console.log("Connected to " + child.get_selection())
+                        dev_instance = self.rm.open_resource(device)
+                        self.console.log("Connected to " + device)
 
-                    response = child.dev_instance.query("*IDN?")
-                    self.console.log("Device - "+ response.split(',')[1])
+                        response = dev_instance.query("*IDN?")
+                        self.console.log("Device - "+ response.split(',')[1])
 
                 except OSError:
                     self.console.error("Can't do this")
 
-                finally:
-                    child.dev_instance.close()
-                    self.console.log("Close device")
+                except VisaIOError:
+                    self.console.error("Timeout")
+
+            else:
+                self.console.error("No device")
         return wraper
+
+    def open(self):
+        def wraper(device, self_name):
+            self.console.func('Open device for '+ self_name)
+            if device:
+                if self.devices[self_name]:
+                    self.console.error("Already open")
+                    self.devices[self_name].close()
+                    self.devices[self_name] = self.rm.open_resource(device)
+                    self.console.log("Connected to " + device)
+                else:
+                    try:
+                        
+                        self.devices[self_name] = self.rm.open_resource(device)
+                        self.console.log("Connected to " + device)
+
+                    except OSError:
+                        self.console.error("Can't do this")
+
+                    except VisaIOError:
+                        self.console.error("Timeout")
+            else:
+                self.console.error("No device !")
+        return wraper
+
+    def execute(self):
+        pass
+
 
     def dl_picture(self):
         filepath = self.fileoptions.get_filepath()
@@ -408,7 +408,7 @@ class Oscil_GUI(ttk.Frame):
 
         if os.path.isfile(filepath):
             # returns boolean value
-            overwrite = tkmessagebox.askyesno(
+            overwrite = messagebox.askyesno(
                 type="yesno",
                 message="A file with the same name already exists in \n" +
                 filepath + "\nThis operation will overwrite it. Continue?",
@@ -451,8 +451,10 @@ class Oscil_GUI(ttk.Frame):
 
 if __name__ == "__main__":
 
-    root = tk.Tk()
-    root.geometry('{}x{}'.format(650, 300))
+    root = Tk()
+    root.geometry('{}x{}'.format(*SIZE))
+    root.title(PROGRAM_NAME)
 
-    view = Oscil_GUI(root, sys.argv)
+    Oscil_GUI(root)
+
     root.mainloop()
