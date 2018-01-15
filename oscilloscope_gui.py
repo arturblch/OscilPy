@@ -22,11 +22,11 @@ PROGRAM_NAME = "Oscil GUI"
 
 """ TODO: Finish settings ini file read/write
 """
-class SettingsControl(ttk.Frame):
+class MesureControl(ttk.Frame):
     def __init__(self):
         self.root = tk.Tk()
         self.setvar = tk.StringVar()
-        self.root.title("Settings")
+        self.root.title("Mesurement")
 
         self.setvar.set(os.path.abspath('.') + "/settings.json")
         settings_list = ['start', 'stop', 'step']
@@ -89,7 +89,7 @@ class SettingsControl(ttk.Frame):
     def show_window(self):
         pass
 
-class FileOptions(ttk.Frame):
+class FileOptions(Frame):
     def __init__(self, parent=None):
         ttk.Frame.__init__(self, parent)
         self.counter = 0
@@ -154,10 +154,12 @@ class FileOptions(ttk.Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
+# TODO(Arturblch) Need refactoring
 
-class InstanceControl(ttk.Frame):
-    def __init__(self, parent, dev_name, devices=None, refreshfunc=None, get_id=None, _open=None):
-        ttk.Frame.__init__(self, parent)
+class DeviceControl(Frame):
+    def __init__(self, parent, dev_name, devices=None, get_id=None, _open=None):
+        Frame.__init__(self, parent.root)
+        self.root = parent
         self.dev_name = dev_name
         # check devices arg
         if not devices == None:
@@ -166,11 +168,6 @@ class InstanceControl(ttk.Frame):
             self.devices = []
 
         # check function args
-        if refreshfunc == None:
-            print("ERROR: Unimplemented method `refreshfunc`")
-            raise NotImplementedError
-        else:
-            self.refreshfunc = refreshfunc
         if get_id == None:
             print("ERROR: Unimplemented method `get_id`")
             raise NotImplementedError
@@ -202,7 +199,7 @@ class InstanceControl(ttk.Frame):
 
         self.refreshbtn = ttk.Button(self)
         self.refreshbtn["text"] = "Refresh"
-        self.refreshbtn["command"] = self.refreshfunc
+        self.refreshbtn["command"] = self.refresh_devices
 
         self.optiondesc.grid(row=0, column=0)
         self.optionsui.grid(row=0, column=1, sticky=EW)
@@ -213,9 +210,9 @@ class InstanceControl(ttk.Frame):
         self.columnconfigure(1, weight=2)
 
 
-    def set_devices(self, devices):
-        self.devices = devices
-        self.optionsui["values"] = tuple(self.devices)
+    def refresh_devices(self):
+        devices = self.root.get_devices()
+        self.optionsui["values"] = tuple(devices)
 
     def get_selection(self):
         return self.selected_option.get()
@@ -292,7 +289,7 @@ class Oscil_GUI:
     def __init__(self, root, args=None):
         self.root = root
 
-        self.rm = None
+        self.rm = visa.ResourceManager()
         self.stdout = False
 
         self.need_devices = ['oscil', 'generator']
@@ -302,7 +299,9 @@ class Oscil_GUI:
         self.argparse(args)
 
         self.init_gui()
-        self.init_serial()
+
+        for dev_ctrl in self.devices_ctrls.values():
+            dev_ctrl.refresh_devices()
 
     def argparse(self, args):
         if not args == None:
@@ -320,7 +319,7 @@ class Oscil_GUI:
     def init_gui(self):
         self.fileoptions = FileOptions(self.root)
         for dev_name in self.need_devices:
-            self.devices_ctrls[dev_name] = InstanceControl(self.root, dev_name, refreshfunc=self.init_serial, get_id=self.get_id(), _open=self.open())
+            self.devices_ctrls[dev_name] = DeviceControl(self, dev_name, get_id=self.get_id(), _open=self.open())
 
         self.toolbar = Toolbar(self.root, dlfunc=self.dl_picture)
         self.console = Console(self.root, stdout=True)
@@ -331,20 +330,14 @@ class Oscil_GUI:
         self.toolbar.pack(side="top", fill="both")
         self.console.pack(side="top", fill="both")
 
-    def init_serial(self):
+    def get_devices(self):
         self.console.func('Refresh devices')
         try:
-            if self.rm == None:
-                self.rm = visa.ResourceManager()
-
             devices = self.rm.list_resources()
-
             self.console.log("Found Devices:\n\t" + '\n\t'.join(devices))
-            for dev in self.devices_ctrls.values():
-                dev.set_devices(devices)
-
         except OSError:
             self.console.error("Cannot initialize serial")
+        return devices
 
     def get_id(self):
         def wraper(device, self_name):
@@ -355,9 +348,6 @@ class Oscil_GUI:
                         response = self.devices[self_name].query("*IDN?")
                         self.console.log("Device - "+ response.split(',')[1])
                     else:
-                        if self.rm == None:
-                            self.rm = visa.ResourceManager()
-
                         dev_instance = self.rm.open_resource(device)
                         self.console.log("Connected to " + device)
 
@@ -398,8 +388,10 @@ class Oscil_GUI:
                 self.console.error("No device !")
         return wraper
 
-    def execute(self):
-        pass
+    def execute(self, commands):
+        for command in commands:
+            pass
+
 
 
     def dl_picture(self):
