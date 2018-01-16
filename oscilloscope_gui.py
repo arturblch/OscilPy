@@ -16,7 +16,7 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 
-from src import DeviceManager
+from src.DeviceManager import DeviceManager
 
 SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
@@ -164,15 +164,10 @@ class FileOptions(Frame):
 
 # TODO(Arturblch): Need refactoring
 class DeviceView(Frame):
-    def __init__(self, parent, dev_name, devices=None, get_id=None, _open=None):
+    def __init__(self, parent, dev_name, get_id=None, _open=None):
         Frame.__init__(self, parent.root)
         self.root = parent
         self.dev_name = dev_name
-        # check devices arg
-        if not devices == None:
-            self.devices = list(devices)
-        else:
-            self.devices = []
 
         # check function args
         if get_id == None:
@@ -194,15 +189,15 @@ class DeviceView(Frame):
         self.selected_option = StringVar()
         self.optionsui = ttk.Combobox(self)
         self.optionsui["textvariable"] = self.selected_option
-        self.optionsui["values"] = tuple(self.devices)
+        self.optionsui["values"] = tuple()
 
         self.opbtn = ttk.Button(self)
         self.opbtn["text"] = "Open"
-        self.opbtn["command"] = lambda : self.open_func(self.get_selection(), self.dev_name)
+        self.opbtn["command"] = lambda : self.open_func(self.dev_name)
 
         self.idbtn = ttk.Button(self)
         self.idbtn["text"] = "Get ID"
-        self.idbtn["command"] = lambda : self.get_id_func(self.get_selection(), self.dev_name)
+        self.idbtn["command"] = lambda : self.get_id_func(self.dev_name)
 
         self.refreshbtn = ttk.Button(self)
         self.refreshbtn["text"] = "Refresh"
@@ -218,7 +213,7 @@ class DeviceView(Frame):
 
 
     def refresh_devices(self):
-        devices = self.root.get_devices()
+        devices = self.root.dm.get_list()
         self.optionsui["values"] = tuple(devices)
 
     def get_selection(self):
@@ -296,7 +291,6 @@ class Oscil_GUI:
     def __init__(self, root, args=None):
         self.root = root
 
-        self.rm = visa.ResourceManager()
         self.stdout = False
 
         self.need_devices = ['oscil', 'generator']
@@ -306,6 +300,7 @@ class Oscil_GUI:
         self.argparse(args)
 
         self.init_gui()
+        self.dm = DeviceManager(self.console)
 
         for dev_ctrl in self.devices_ctrls.values():
             dev_ctrl.refresh_devices()
@@ -337,67 +332,19 @@ class Oscil_GUI:
         self.toolbar.pack(side="top", fill="both")
         self.console.pack(side="top", fill="both")
 
-    def get_devices(self):
-        self.console.func('Refresh devices')
-        try:
-            devices = self.rm.list_resources()
-            self.console.log("Found Devices:\n\t" + '\n\t'.join(devices))
-        except OSError:
-            self.console.error("Cannot initialize serial")
-        return devices
-
     def get_id(self):
-        def wraper(device, self_name):
+        def wraper(device, name):
             self.console.func('Get ID')
-            if device:
-                try:
-                    if self.devices[self_name]:
-                        response = self.devices[self_name].query("*IDN?")
-                        self.console.log("Device - "+ response.split(',')[1])
-                    else:
-                        dev_instance = self.rm.open_resource(device)
-                        self.console.log("Connected to " + device)
-
-                        response = dev_instance.query("*IDN?")
-                        self.console.log("Device - "+ response.split(',')[1])
-
-                except OSError:
-                    self.console.error("Can't do this")
-
-                except VisaIOError:
-                    self.console.error("Timeout")
-
-            else:
-                self.console.error("No device")
+            dev_instance = self.rm.open_resource(name)
+            response = dev_instance.query("*IDN?")
+            self.console.log("Device - " + response.split(',')[1])
         return wraper
 
     def open(self):
-        def wraper(device, self_name):
-            self.console.func('Open device for '+ self_name)
-            if device:
-                if self.devices[self_name]:
-                    self.console.error("Already open")
-                    self.devices[self_name].close()
-                    self.devices[self_name] = self.rm.open_resource(device)
-                    self.console.log("Connected to " + device)
-                else:
-                    try:
-                        
-                        self.devices[self_name] = self.rm.open_resource(device)
-                        self.console.log("Connected to " + device)
-
-                    except OSError:
-                        self.console.error("Can't do this")
-
-                    except VisaIOError:
-                        self.console.error("Timeout")
-            else:
-                self.console.error("No device !")
+        def wraper(name):
+            self.console.func('Open device for ' + name)
+            self.dm.open(name)
         return wraper
-
-    def execute(self, commands):
-        for command in commands:
-            pass
 
 
 
