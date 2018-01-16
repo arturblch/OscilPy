@@ -16,9 +16,13 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 
+from src import DeviceManager
 
 SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
+
+
+
 
 """ TODO: Finish settings ini file read/write
 """
@@ -154,9 +158,12 @@ class FileOptions(Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
-# TODO(Arturblch) Need refactoring
 
-class DeviceControl(Frame):
+
+
+
+# TODO(Arturblch): Need refactoring
+class DeviceView(Frame):
     def __init__(self, parent, dev_name, devices=None, get_id=None, _open=None):
         Frame.__init__(self, parent.root)
         self.root = parent
@@ -319,7 +326,7 @@ class Oscil_GUI:
     def init_gui(self):
         self.fileoptions = FileOptions(self.root)
         for dev_name in self.need_devices:
-            self.devices_ctrls[dev_name] = DeviceControl(self, dev_name, get_id=self.get_id(), _open=self.open())
+            self.devices_ctrls[dev_name] = DeviceView(self, dev_name, get_id=self.get_id(), _open=self.open())
 
         self.toolbar = Toolbar(self.root, dlfunc=self.dl_picture)
         self.console = Console(self.root, stdout=True)
