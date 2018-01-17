@@ -1,6 +1,6 @@
 import pytest
-import src.DeviceManager
-import Fake_log
+from src.DeviceManager import DeviceManager
+from tests.fake_log import Fake_log
 
 
 def test_init():

@@ -15,7 +15,7 @@ class Device:
             if self.addr is not None:
                 try:
                     self.dev_obj = self.rm.open_resource(self.addr)
-                    self.log.log(self.name + " connected to " + self.addr)
+                    self.log.info(self.name + " connected to " + self.addr)
 
                 except OSError:
                     self.log.error("Can't do this")
@@ -32,7 +32,7 @@ class Device:
         if self.is_open:
                 try:
                     self.dev_obj.close()                # Закрываем соединение
-                    self.log.log(self.name + " closed")
+                    self.log.info(self.name + " closed")
                     self.dev_obj = None
 
                 except OSError:
@@ -70,7 +70,7 @@ class DeviceManager:
                     try:
                         device.dev_obj = self.rm.open_resource(device.addr)
                         device.is_open = True
-                        self.log.log(device.name + " connected to " + device.addr)
+                        self.log.info(device.name + " connected to " + device.addr)
 
                     except OSError:
                         self.log.error("Can't do this")

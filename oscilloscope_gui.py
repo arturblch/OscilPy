@@ -15,11 +15,15 @@ from tkinter import ttk
 
 from tkinter import filedialog
 from tkinter import messagebox
-
 from src.DeviceManager import DeviceManager
+from src.DeviceView import DeviceView
+from src.Console import ConsoleView, ConsoleHandler
+
+from utils import LogGetter
 
 SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
+
 
 
 
@@ -158,68 +162,6 @@ class FileOptions(Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
-
-
-
-
-# TODO(Arturblch): Need refactoring
-class DeviceView(Frame):
-    def __init__(self, parent, dev_name, get_id=None, _open=None):
-        Frame.__init__(self, parent.root)
-        self.root = parent
-        self.dev_name = dev_name
-
-        # check function args
-        if get_id == None:
-            print("ERROR: Unimplemented method `get_id`")
-            raise NotImplementedError
-        else:
-            self.get_id_func = get_id
-
-        if _open == None:
-            print("ERROR: Unimplemented method `_open`")
-            raise NotImplementedError
-        else:
-            self.open_func = _open
-
-        self.optiondesc = ttk.Label(self)
-        self.optiondesc["justify"] = LEFT
-        self.optiondesc["text"] = "Select " + self.dev_name
-
-        self.selected_option = StringVar()
-        self.optionsui = ttk.Combobox(self)
-        self.optionsui["textvariable"] = self.selected_option
-        self.optionsui["values"] = tuple()
-
-        self.opbtn = ttk.Button(self)
-        self.opbtn["text"] = "Open"
-        self.opbtn["command"] = lambda : self.open_func(self.dev_name)
-
-        self.idbtn = ttk.Button(self)
-        self.idbtn["text"] = "Get ID"
-        self.idbtn["command"] = lambda : self.get_id_func(self.dev_name)
-
-        self.refreshbtn = ttk.Button(self)
-        self.refreshbtn["text"] = "Refresh"
-        self.refreshbtn["command"] = self.refresh_devices
-
-        self.optiondesc.grid(row=0, column=0)
-        self.optionsui.grid(row=0, column=1, sticky=EW)
-        self.opbtn.grid(row=0, column=2, sticky=EW)
-        self.idbtn.grid(row=0, column=3, sticky=EW)
-        self.refreshbtn.grid(row=0, column=4, sticky=EW)
-
-        self.columnconfigure(1, weight=2)
-
-
-    def refresh_devices(self):
-        devices = self.root.dm.get_list()
-        self.optionsui["values"] = tuple(devices)
-
-    def get_selection(self):
-        return self.selected_option.get()
-
-
 class Toolbar(ttk.Frame):
     def __init__(self, parent=None, dlfunc=None):
         ttk.Frame.__init__(self, parent)
@@ -249,49 +191,9 @@ class Toolbar(ttk.Frame):
         self.shells.append(shellwin)
 
 
-class Console(ttk.Frame):
-    def __init__(self, parent=None, stdout=False):
-        ttk.Frame.__init__(self, parent)
-
-        self.stdout = stdout
-
-        self.console_line = ttk.Entry(self)
-        self.console = Text(self, width=30)
-        self.console_scrol = ttk.Scrollbar(
-            self, orient="vertical", command=self.console.yview)
-
-        self.command = Text(self, width=30)
-        self.comand_scrol = ttk.Scrollbar(
-            self, orient="vertical", command=self.command.yview)
-
-        self.console_line.pack(side="top", fill="both")
-
-        self.console.pack(side="left", fill="both", expand=True)
-        self.console_scrol.pack(side="left", fill="both")
-        self.command.pack(side="left", fill="both", expand=True)
-        self.comand_scrol.pack(side="left", fill="both")
-
-    def txt(self, text):
-        if self.stdout:
-            print(text)
-
-        self.console.insert(END, text + '\n')
-
-    def log(self, text):
-        self.txt("LOG: " + text)
-
-    def func(self, text):
-        self.command.insert(END, text + '\n')
-
-    def error(self, text):
-        self.txt("ERROR: " + text)
-
-
 class Oscil_GUI:
     def __init__(self, root, args=None):
         self.root = root
-
-        self.stdout = False
 
         self.need_devices = ['oscil', 'generator']
         self.devices = {dev : None for dev in self.need_devices}
@@ -299,8 +201,15 @@ class Oscil_GUI:
 
         self.argparse(args)
 
+        self.log = LogGetter.get_logger()
+        
         self.init_gui()
-        self.dm = DeviceManager(self.console)
+        wh = ConsoleHandler(self.console)
+        self.log.addHandler(wh)
+        
+        self.dm = DeviceManager(self.log)
+        for dev_name in self.need_devices:
+            self.dm.add_device(dev_name)
 
         for dev_ctrl in self.devices_ctrls.values():
             dev_ctrl.refresh_devices()
@@ -324,7 +233,7 @@ class Oscil_GUI:
             self.devices_ctrls[dev_name] = DeviceView(self, dev_name, get_id=self.get_id(), _open=self.open())
 
         self.toolbar = Toolbar(self.root, dlfunc=self.dl_picture)
-        self.console = Console(self.root, stdout=True)
+        self.console = ConsoleView(self.root)
 
         self.fileoptions.pack(side="top", fill="both")
         for dev in self.devices_ctrls.values():
@@ -334,15 +243,13 @@ class Oscil_GUI:
 
     def get_id(self):
         def wraper(device, name):
-            self.console.func('Get ID')
             dev_instance = self.rm.open_resource(name)
             response = dev_instance.query("*IDN?")
-            self.console.log("Device - " + response.split(',')[1])
+            self.log.info("Device - " + response.split(',')[1])
         return wraper
 
     def open(self):
         def wraper(name):
-            self.console.func('Open device for ' + name)
             self.dm.open(name)
         return wraper
 
@@ -365,33 +272,32 @@ class Oscil_GUI:
             try:
                 self.dev_instance = self.rm.open_resource(
                     self.instancectl.get_selection())
-                self.console.log("Connected to " +
+                self.log.info("Connected to " +
                                  self.instancectl.get_selection())
 
                 self.dev_instance.chunk_size = 5000000
                 self.dev_instance.timeout = None
 
-                self.console.log("Sending image download command")
+                self.log.info("Sending image download command")
                 self.dev_instance.write("HARDCOPY:PORT RS232")
                 self.dev_instance.write("HARDCOPY:filename \"TEK.PNG\"")
                 self.dev_instance.write("HARDCOPY START")
                 time.sleep(1)
 
-                self.console.log("Starting image download")
+                self.log.info("Starting image download")
                 prtscr_bin = self.dev_instance.read_raw()
-                self.console.log("Image download complete, writing file")
+                self.log.info("Image download complete, writing file")
 
                 with open(filepath, "wb") as f:
                     f.write(prtscr_bin)
-                self.console.log("Image file written")
+                self.log.info("Image file written")
 
                 self.dev_instance.close()
-                self.console.log("Download Completed")
+                self.log.info("Download Completed")
 
             except pyvisa.errors.VisaIOError:
-                self.console.error(
-                    "Visa IOError w/ [" + self.instancectl.get_selection() + "]")
-                self.console.txt(
+                self.log.error(
+                    "Visa IOError w/ [" + self.instancectl.get_selection() + "]" +
                     "\tPS: Did you choose the device on the combobox?")
 
 
