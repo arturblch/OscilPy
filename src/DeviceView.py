@@ -3,23 +3,12 @@ from tkinter import *
 
 
 class DeviceView(Frame):
-    def __init__(self, parent, dev_name, get_id=None, _open=None):
-        Frame.__init__(self, parent.root)
-        self.root = parent
-        self.dev_name = dev_name
-
-        # check function args
-        if get_id is None:
-            print("ERROR: Unimplemented method `get_id`")
-            raise NotImplementedError
-        else:
-            self.get_id_func = get_id
-
-        if _open is None:
-            print("ERROR: Unimplemented method `_open`")
-            raise NotImplementedError
-        else:
-            self.open_func = _open
+    def __init__(self, root, dev_manager, device, log):
+        Frame.__init__(self, root)
+        self.dev_manager = dev_manager
+        self.device = device
+        self.dev_name = device.name
+        self.log = log
 
         self.optiondesc = ttk.Label(self)
         self.optiondesc["justify"] = LEFT
@@ -29,14 +18,15 @@ class DeviceView(Frame):
         self.optionsui = ttk.Combobox(self)
         self.optionsui["textvariable"] = self.selected_option
         self.optionsui["values"] = tuple()
+        self.optionsui.bind("<<ComboboxSelected>>", lambda _ : self.set_address())
 
         self.opbtn = ttk.Button(self)
         self.opbtn["text"] = "Open"
-        self.opbtn["command"] = lambda: self.open_func(self.dev_name)
+        self.opbtn["command"] = lambda : self.device.open(self.dev_manager.rm)
 
         self.idbtn = ttk.Button(self)
         self.idbtn["text"] = "Get ID"
-        self.idbtn["command"] = lambda: self.get_id_func(self.dev_name)
+        self.idbtn["command"] = lambda : self.device.id_info(self.dev_manager.rm)
 
         self.refreshbtn = ttk.Button(self)
         self.refreshbtn["text"] = "Refresh"
@@ -51,9 +41,13 @@ class DeviceView(Frame):
         self.columnconfigure(1, weight=2)
 
     def refresh_devices(self):
-        devices = self.root.dm.get_list()
+        devices = self.dev_manager.get_list()
         self.optionsui["values"] = tuple(devices)
-        self.root.log.info('Refresh devices')
+        self.log.info('Refresh devices for ' + self.dev_name +' view')
 
     def get_selection(self):
         return self.selected_option.get()
+
+    def set_address(self):
+        new_addr = self.get_selection()
+        self.device.set_addr(new_addr)

@@ -23,7 +23,7 @@ from utils import LogGetter
 
 SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
-
+DEV_LIST = ['oscil', 'generator']
 
 
 
@@ -163,16 +163,10 @@ class FileOptions(Frame):
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
 class Toolbar(ttk.Frame):
-    def __init__(self, parent=None, dlfunc=None):
+    def __init__(self, parent=None):
         ttk.Frame.__init__(self, parent)
 
         self.shells = []
-
-        if dlfunc == None:
-            print("ERROR: Unimplemented method `dlfunc`")
-            raise NotImplementedError
-        else:
-            self.dlfunc = dlfunc
 
         self.settingbtn = ttk.Button(self)
         self.settingbtn["text"] = "Settings"
@@ -185,75 +179,49 @@ class Toolbar(ttk.Frame):
     def open_settings(self):
         settingwin = SettingsControl(self)
 
-
     def open_shell(self):
         shellwin = ShellWindow()
         self.shells.append(shellwin)
 
 
 class Oscil_GUI:
-    def __init__(self, root, args=None):
+    def __init__(self, root):
         self.root = root
+        self.root.protocol("WM_DELETE_WINDOW", self.exit)
 
-        self.need_devices = ['oscil', 'generator']
-        self.devices = {dev : None for dev in self.need_devices}
-        self.devices_ctrls = dict()
+        self.dev_views = dict()             # Кортеж видов для устройств
 
-        self.argparse(args)
-
-        self.log = LogGetter.get_logger()
-        
-        self.init_gui()
-        wh = ConsoleHandler(self.console)
-        self.log.addHandler(wh)
-        
-        self.dm = DeviceManager(self.log)
-        for dev_name in self.need_devices:
+        self.log = LogGetter.get_logger()   # Создаем логер
+        self.dm = DeviceManager(self.log)   # Создаем менеджер устройств
+        for dev_name in DEV_LIST:           # Добовляем устройства к менеджеру
             self.dm.add_device(dev_name)
 
-        for dev_ctrl in self.devices_ctrls.values():
-            dev_ctrl.refresh_devices()
+        self.init_gui()                     # Создаем форму
 
-    def argparse(self, args):
-        if not args == None:
-            for i in range(len(args)):
-                if args[i] in ("--help", "-h"):
-                    helptext = "Oscil_GUI.py [args]"
-                    print(helptext)
+        wh = ConsoleHandler(self.console)   # Подписываем консоль к логеру
+        self.log.addHandler(wh)
 
-                elif args[i] == "--stdout":
-                    if args[i + 1].lower() == "true":
-                        self.stdout = True
-                    elif args[i + 1].lower() == "false":
-                        self.stout = False
+        for dev_view in self.dev_views.values():  # Обновляем список устройств  
+            dev_view.refresh_devices()            # для каждого вида
 
     def init_gui(self):
         self.fileoptions = FileOptions(self.root)
-        for dev_name in self.need_devices:
-            self.devices_ctrls[dev_name] = DeviceView(self, dev_name, get_id=self.get_id(), _open=self.open())
-
-        self.toolbar = Toolbar(self.root, dlfunc=self.dl_picture)
+        for dev_name in DEV_LIST:
+            device = self.dm.devices[dev_name]
+            if device is not None:
+                self.dev_views[dev_name] = DeviceView(self.root, self.dm, device, self.log)
+        self.toolbar = Toolbar(self.root)
         self.console = ConsoleView(self.root)
 
         self.fileoptions.pack(side="top", fill="both")
-        for dev in self.devices_ctrls.values():
+        for dev in self.dev_views.values():
             dev.pack(side="top", fill="both")
         self.toolbar.pack(side="top", fill="both")
         self.console.pack(side="top", fill="both")
 
-    def get_id(self):
-        def wraper(device, name):
-            dev_instance = self.rm.open_resource(name)
-            response = dev_instance.query("*IDN?")
-            self.log.info("Device - " + response.split(',')[1])
-        return wraper
-
-    def open(self):
-        def wraper(name):
-            self.dm.open(name)
-        return wraper
-
-
+    def exit(self):
+        self.dm.close_all()
+        self.root.destroy()
 
     def dl_picture(self):
         filepath = self.fileoptions.get_filepath()
@@ -307,6 +275,5 @@ if __name__ == "__main__":
     root.geometry('{}x{}'.format(*SIZE))
     root.title(PROGRAM_NAME)
 
-    Oscil_GUI(root)
-
+    gui = Oscil_GUI(root)
     root.mainloop()

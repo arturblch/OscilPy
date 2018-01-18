@@ -10,11 +10,17 @@ class Device:
 
         self.log = log
 
-    def open(self):
+    def set_addr(self, new_addr):
+        if self.addr != new_addr:
+            self.addr = new_addr
+            self.log.info('Set "' + new_addr +'" address for ' + self.name)
+
+    def open(self, rm):
         if not self.is_open:
             if self.addr is not None:
                 try:
-                    self.dev_obj = self.rm.open_resource(self.addr)
+                    self.dev_obj = rm.open_resource(self.addr)
+                    self.is_open = True
                     self.log.info(self.name + " connected to " + self.addr)
 
                 except OSError:
@@ -24,9 +30,10 @@ class Device:
                     self.log.error("Timeout or divice not connnected")
 
             else:
-                self.log.error("Don't have adress to device")
+                self.log.error("Haven't adress to device")
+                raise ValueError("Haven't have adress to device")
         else:
-            self.log.error("Already open")
+            self.log.info("Already open")
 
     def close(self):
         if self.is_open:
@@ -34,6 +41,7 @@ class Device:
                     self.dev_obj.close()                # Закрываем соединение
                     self.log.info(self.name + " closed")
                     self.dev_obj = None
+                    self.is_open = False
 
                 except OSError:
                     self.log.error("Can't do this")
@@ -41,18 +49,25 @@ class Device:
                 except VisaIOError:
                     self.log.error("Timeout or divice not connnected")
         else:
-            self.log.error("Already closed")
+            self.log.info("Already closed")
 
     def query(self, command):
+        response = None
         try:
             response = self.dev_obj.query(command)
         except VisaIOError:
-                    self.log.error("Timeout or divice not connnected")
+            self.log.error("Timeout or divice not connnected")
         return response
 
     def write(self, command):
         return self.dev_obj.write(command)
 
+    def id_info(self, rm):
+        self.open(rm)
+        response = self.query("IDN?")
+        if response is not None:
+            self.log.info("Device - " + response.split(',')[1])
+        self.close()
 
 class DeviceManager:
     def __init__(self, log):
@@ -62,34 +77,24 @@ class DeviceManager:
 
     def open(self, name):
         if name in self.devices.keys():
-
-            device = self.devices[name]
-
-            if not device.is_open:
-                if device.addr is not None:
-                    try:
-                        device.dev_obj = self.rm.open_resource(device.addr)
-                        device.is_open = True
-                        self.log.info(device.name + " connected to " + device.addr)
-
-                    except OSError:
-                        self.log.error("Can't do this")
-
-                    except VisaIOError:
-                        self.log.error("Timeout or divice not connnected")
-
-                else:
-                    self.log.error("Don't have adress to device")
-            else:
-                self.log.error("Already open")
+            self.devices[name].open(self.rm)
         else:
             self.log.error("Don't have device for it")
+
+    def open_all(self):
+        for dev in self.devices.values():
+            dev.open(self.rm)
 
     def close(self, name):
         if name in self.devices.keys():
             self.devices[name].close()
         else:
             self.log.error("Don't have device for it")
+
+    def close_all(self):
+        for dev in self.devices.values():
+            if dev.is_open:
+                dev.close()
 
     def add_device(self, name):
         if name not in self.devices.keys():
@@ -99,6 +104,9 @@ class DeviceManager:
 
     def get_list(self):
         return self.rm.list_resources()
+
+    def get_device(self, dev_name):
+        return self.devices.get(dev_name)
 
     def get_all_devices(self):
         return self.devices

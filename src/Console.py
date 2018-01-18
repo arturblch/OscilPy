@@ -18,6 +18,8 @@ class ConsoleView(ttk.Frame):
 
         # self.console_line.bind("<Return>", self.write)
 
+        
+
     def write(self, text):
         self.console.insert(END, text + '\n')
         self.console.see(END)
