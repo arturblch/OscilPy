@@ -22,11 +22,11 @@ class DeviceView(Frame):
 
         self.opbtn = ttk.Button(self)
         self.opbtn["text"] = "Open"
-        self.opbtn["command"] = lambda : self.device.open(self.dev_manager.rm)
+        self.opbtn["command"] = self.device.open
 
         self.idbtn = ttk.Button(self)
         self.idbtn["text"] = "Get ID"
-        self.idbtn["command"] = lambda : self.device.id_info(self.dev_manager.rm)
+        self.idbtn["command"] = self.device.id_info
 
         self.refreshbtn = ttk.Button(self)
         self.refreshbtn["text"] = "Refresh"

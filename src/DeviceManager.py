@@ -2,7 +2,8 @@ import pyvisa
 from pyvisa.errors import VisaIOError
 
 class Device:
-    def __init__(self, name, log):
+    def __init__(self, rm, name, log):
+        self.rm = rm
         self.name = name         # Наименование устройства    
         self.addr = None         # Адресс по которому находится устройство(None если не открыто)
         self.is_open  = False    # Флаг показывающий открыто ли устройство
@@ -15,11 +16,11 @@ class Device:
             self.addr = new_addr
             self.log.info('Set "' + new_addr +'" address for ' + self.name)
 
-    def open(self, rm):
+    def open(self):
         if not self.is_open:
             if self.addr is not None:
                 try:
-                    self.dev_obj = rm.open_resource(self.addr)
+                    self.dev_obj = self.rm.open_resource(self.addr)
                     self.is_open = True
                     self.log.info(self.name + " connected to " + self.addr)
 
@@ -62,13 +63,15 @@ class Device:
     def write(self, command):
         return self.dev_obj.write(command)
 
-    def id_info(self, rm):
-        self.open(rm)
-        response = self.query("IDN?")
+    def id_info(self):
+        self.open()
+        response = self.query("*IDN?")
         if response is not None:
             self.log.info("Device - " + response.split(',')[1])
         self.close()
 
+''' DeviceManager хранит объект ResourceManager(pyvisa) и перечень устройств
+'''
 class DeviceManager:
     def __init__(self, log):
         self.devices = dict()
@@ -77,13 +80,13 @@ class DeviceManager:
 
     def open(self, name):
         if name in self.devices.keys():
-            self.devices[name].open(self.rm)
+            self.devices[name].open()
         else:
             self.log.error("Don't have device for it")
 
     def open_all(self):
         for dev in self.devices.values():
-            dev.open(self.rm)
+            dev.open()
 
     def close(self, name):
         if name in self.devices.keys():
@@ -98,7 +101,7 @@ class DeviceManager:
 
     def add_device(self, name):
         if name not in self.devices.keys():
-            self.devices[name] = Device(name, self.log)
+            self.devices[name] = Device(self.rm, name, self.log)
         else:
             self.log.error("Device with this name already exists")
 

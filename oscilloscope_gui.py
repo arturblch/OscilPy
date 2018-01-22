@@ -27,14 +27,70 @@ DEV_LIST = ['oscil', 'generator']
 
 
 
+class Task_1:
+    def __init__(self, settings):
+        self.is_stop = False
+        self.pause = False
+        self.settings = settings
+
+    def start(self, oscil, generator, save_loc):
+        oscil.open()                    # Открываем устройства
+        generator.open()
+
+        oscil.write("factory")          # Сброс настроек
+        generator.write("*RST")
+
+        generator.write("FREQ:STEP:MODE USER")
+        generator.write("FREQ:STEP {}".format(self.settings['freq_step']))
+        generator.write("FREQ {}".format(self.settings['start_freq']))
+        generator.write("SOUR:POW:POW {}".format(self.settings['power']))
+
+        oscil.write("MEASU:MEAS1:SOUrce CH1")                          # Источник сигнала
+        oscil.write("MEASU:MEAS2:SOUrce CH2")
+        oscil.write("MEASU:MEAS1:TYPe PK2PK")                          # Тип измерения (Пиковое)
+        oscil.write("MEASU:MEAS2:TYPe PK2PK")
+        oscil.write("MEASU:MEAS1:State ON")                            # Включить
+        oscil.write("MEASU:MEAS2:State ON")
+
+        try:
+            with open(save_loc, "w") as file:
+                file.write(";".join(["Gen_freq", "Ch_1", "Ch_2"]) + '\n')
+                # generator.write("OUTP ON")
+                chanel1 = oscil.query("MEASU:MEAS1:VALue?").split()[1]                    # Возврат значения
+                chanel2 = oscil.query("MEASU:MEAS2:VALue?").split()[1]
+
+                file.write(";".join([self.settings['start_freq'], chanel1, chanel2])+ '\n')
+
+                for gen_freq in range(int(self.settings['start_freq'][:-3]) + int(self.settings['freq_step'][:-3]),
+                                    int(self.settings['stop_freq'][:-3]) + int(self.settings['freq_step'][:-3]),
+                                    int(self.settings['freq_step'][:-3])):
+
+                    generator.write("FREQ UP")
+                    time.sleep(0.1)
+                    chanel1 = oscil.query("MEASU:MEAS1:VALue?").split()[1]                   # Возврат значения
+                    chanel2 = oscil.query("MEASU:MEAS2:VALue?").split()[1]
+
+                    file.write(";".join([str(gen_freq), str(chanel1), str(chanel2)])+'\n')
+        except Exception as e:
+            raise e
+        finally:
+            generator.write("OUTP OFF")
+
+    def stop(self):
+        self.is_stop = True
+
+    def pause(self):
+        self.pause = not self.pause
+
+
 
 """ TODO: Finish settings ini file read/write
 """
-class MesureControl(ttk.Frame):
+class TaskSettings(ttk.Frame):
     def __init__(self):
         self.root = tk.Tk()
         self.setvar = tk.StringVar()
-        self.root.title("Mesurement")
+        self.root.title("Task Settings")
 
         self.setvar.set(os.path.abspath('.') + "/settings.json")
         settings_list = ['start', 'stop', 'step']
@@ -162,27 +218,38 @@ class FileOptions(Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
-class Toolbar(ttk.Frame):
-    def __init__(self, parent=None):
+class TaskControl(ttk.Frame):
+    def __init__(self, parent, gui):
         ttk.Frame.__init__(self, parent)
+        self.gui = gui
+        settings = {
+            'freq_step' : '1 MHz',
+            'start_freq' : '100 MHz',
+            'stop_freq' : '200 MHz',
+            'power' : '-20 dBm'
+        }
 
-        self.shells = []
+        self.task = Task_1(settings)
 
         self.settingbtn = ttk.Button(self)
         self.settingbtn["text"] = "Settings"
         self.settingbtn["command"] = self.open_settings
 
-        self.settingbtn.grid(row=0, column=0)
+        self.startbtn = ttk.Button(self)
+        self.startbtn["text"] = "Start Mesurement"
+        self.startbtn["command"] = self.start_cur_task
 
-        self.columnconfigure(0, weight=1)
+        self.settingbtn.grid(row=0, column=0)
+        self.startbtn.grid(row=0, column=1)
 
     def open_settings(self):
-        settingwin = SettingsControl(self)
+        settingwin = TaskSettings(self)
 
-    def open_shell(self):
-        shellwin = ShellWindow()
-        self.shells.append(shellwin)
-
+    def start_cur_task(self):
+        oscil = self.gui.dm.get_device("oscil")
+        generator = self.gui.dm.get_device("generator")
+        save_loc = self.gui.fileoptions.get_filepath()
+        self.task.start(oscil, generator, save_loc)
 
 class Oscil_GUI:
     def __init__(self, root):
@@ -198,9 +265,6 @@ class Oscil_GUI:
 
         self.init_gui()                     # Создаем форму
 
-        wh = ConsoleHandler(self.console)   # Подписываем консоль к логеру
-        self.log.addHandler(wh)
-
         for dev_view in self.dev_views.values():  # Обновляем список устройств  
             dev_view.refresh_devices()            # для каждого вида
 
@@ -210,8 +274,12 @@ class Oscil_GUI:
             device = self.dm.devices[dev_name]
             if device is not None:
                 self.dev_views[dev_name] = DeviceView(self.root, self.dm, device, self.log)
-        self.toolbar = Toolbar(self.root)
+        
+        self.toolbar = TaskControl(self.root, self)
+
         self.console = ConsoleView(self.root)
+        wh = ConsoleHandler(self.console)   # Подписываем консоль к логеру
+        self.log.addHandler(wh)
 
         self.fileoptions.pack(side="top", fill="both")
         for dev in self.dev_views.values():
@@ -222,6 +290,8 @@ class Oscil_GUI:
     def exit(self):
         self.dm.close_all()
         self.root.destroy()
+
+
 
     def dl_picture(self):
         filepath = self.fileoptions.get_filepath()
