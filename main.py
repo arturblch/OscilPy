@@ -19,7 +19,7 @@ from src.DeviceManager import DeviceManager
 from src.DeviceView import DeviceView
 from src.Console import ConsoleView, ConsoleHandler
 
-from utils import LogGetter
+from utils import LogGetter, SettingsGetter
 
 SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
@@ -223,9 +223,9 @@ class TaskControl(ttk.Frame):
         ttk.Frame.__init__(self, parent)
         self.gui = gui
         settings = {
-            'freq_step' : '1 MHz',
             'start_freq' : '100 MHz',
             'stop_freq' : '200 MHz',
+            'freq_step' : '1 MHz',
             'power' : '-20 dBm'
         }
 
@@ -233,7 +233,7 @@ class TaskControl(ttk.Frame):
 
         self.settingbtn = ttk.Button(self)
         self.settingbtn["text"] = "Settings"
-        self.settingbtn["command"] = self.open_settings
+        self.settingbtn["command"] = self.set_settings
 
         self.startbtn = ttk.Button(self)
         self.startbtn["text"] = "Start Mesurement"
@@ -242,8 +242,9 @@ class TaskControl(ttk.Frame):
         self.settingbtn.grid(row=0, column=0)
         self.startbtn.grid(row=0, column=1)
 
-    def open_settings(self):
-        settingwin = TaskSettings(self)
+    def get_settings(self):
+        settings = SettingsGetter.get_settings(self.parent, self.parent.settings)
+        self.parent.settings = settings
 
     def start_cur_task(self):
         oscil = self.gui.dm.get_device("oscil")
@@ -259,6 +260,7 @@ class Oscil_GUI:
         self.dev_views = dict()             # Кортеж видов для устройств
 
         self.log = LogGetter.get_logger()   # Создаем логер
+        self.settings = None                # Создаем настройки
         self.dm = DeviceManager(self.log)   # Создаем менеджер устройств
         for dev_name in DEV_LIST:           # Добовляем устройства к менеджеру
             self.dm.add_device(dev_name)
@@ -290,54 +292,6 @@ class Oscil_GUI:
     def exit(self):
         self.dm.close_all()
         self.root.destroy()
-
-
-
-    def dl_picture(self):
-        filepath = self.fileoptions.get_filepath()
-        overwrite = None
-
-        if os.path.isfile(filepath):
-            # returns boolean value
-            overwrite = messagebox.askyesno(
-                type="yesno",
-                message="A file with the same name already exists in \n" +
-                filepath + "\nThis operation will overwrite it. Continue?",
-                icon="question",
-                title="File already exists")
-
-        if overwrite or overwrite == None:
-            try:
-                self.dev_instance = self.rm.open_resource(
-                    self.instancectl.get_selection())
-                self.log.info("Connected to " +
-                                 self.instancectl.get_selection())
-
-                self.dev_instance.chunk_size = 5000000
-                self.dev_instance.timeout = None
-
-                self.log.info("Sending image download command")
-                self.dev_instance.write("HARDCOPY:PORT RS232")
-                self.dev_instance.write("HARDCOPY:filename \"TEK.PNG\"")
-                self.dev_instance.write("HARDCOPY START")
-                time.sleep(1)
-
-                self.log.info("Starting image download")
-                prtscr_bin = self.dev_instance.read_raw()
-                self.log.info("Image download complete, writing file")
-
-                with open(filepath, "wb") as f:
-                    f.write(prtscr_bin)
-                self.log.info("Image file written")
-
-                self.dev_instance.close()
-                self.log.info("Download Completed")
-
-            except pyvisa.errors.VisaIOError:
-                self.log.error(
-                    "Visa IOError w/ [" + self.instancectl.get_selection() + "]" +
-                    "\tPS: Did you choose the device on the combobox?")
-
 
 if __name__ == "__main__":
 
