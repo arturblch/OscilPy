@@ -1,9 +1,9 @@
 def get_logger():
     import logging
 
-    logger = logging.getLogger('Oscil_gui')             # create logger
+    logger = logging.getLogger('debug')             # create logger
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler('Oscil_gui.log', mode='w') # create file handler which logs even debug messages
+    fh = logging.FileHandler('debug.log', mode='w') # create file handler which logs even debug messages
     fh.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()                        # create console handler and set level to debug
     ch.setLevel(logging.DEBUG)

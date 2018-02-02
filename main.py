@@ -25,6 +25,49 @@ SIZE = (650, 500)
 PROGRAM_NAME = "Oscil GUI"
 DEV_LIST = ['oscil', 'generator']
 
+class OpenCommand:
+    __slots__ = 'device'
+
+    def __init__(self, device):
+        self.device = device
+
+    def execute(self):
+        self.device.open()
+
+class WriteCommand:
+    __slots__ = 'device', 'command', 'attr'
+
+    def __init__(self, device, command, attr=None):
+        self.device = device
+        self.command = command
+        self.attr = attr
+
+    def execute(self):
+        self.device.write("{} {}".format(self.command, self.attr))
+
+class QueryCommand:
+    __slots__ = 'device', 'command'
+
+    def __init__(self, device, command, attr):
+        self.device = device
+        self.command = command
+
+    def execute(device):
+        self.device.query(self.command)
+
+
+class Task_2:
+    def __init__(self, settings, devices):
+        self.is_stop = False
+        self.pause = False
+        self.settings = settings
+        self.device = devices
+        self.command_list = [
+                            OpenCommand(self.device['oscil']),
+                            OpenCommand(self.device['generator']),
+                            WriteCommand(self.device['oscil'], 'factory'),
+                            WriteCommand(self.device['generator'], '*RST'),
+                            ]
 
 
 class Task_1:
@@ -81,77 +124,6 @@ class Task_1:
 
     def pause(self):
         self.pause = not self.pause
-
-
-
-""" TODO: Finish settings ini file read/write
-"""
-class TaskSettings(ttk.Frame):
-    def __init__(self):
-        self.root = tk.Tk()
-        self.setvar = tk.StringVar()
-        self.root.title("Task Settings")
-
-        self.setvar.set(os.path.abspath('.') + "/settings.json")
-        settings_list = ['start', 'stop', 'step']
-        self.settings = {setting : None for setting in settings_list}
-
-        self.init_save_path_form()
-
-    def init_settings_form(self, fields):
-        entries = dict()
-        for field in fields:
-            row = ttk.Frame(root)
-            lab = ttk.Label(row, width=15, text=field, anchor='w')
-            ent = ttk.Entry(row)
-            row.pack(side=TOP, fill=X, padx=5, pady=5)
-            lab.pack(side=LEFT)
-            ent.pack(side=RIGHT, expand=YES, fill=X)
-            entries.update({field: ent})
-        return entries
-
-    def init_path_form(self):
-        self.setdesc = ttk.Label(self)
-        self.setdesc["justify"] = tk.LEFT
-        self.setdesc["text"] = "Settings path"
-
-        self.setentry = ttk.Entry(self)
-        self.setentry["textvariable"] = self.setvar
-
-        self.setpathbtn = ttk.Button(self)
-        self.setpathbtn["text"] = "Select"
-        self.setpathbtn["command"] = self.path_dialog
-
-        self.setreadbtn = ttk.Button(self)
-        self.setreadbtn["text"] = "Read"
-        self.setreadbtn["command"] = self.read_config
-
-        self.setreadbtn = ttk.Button(self)
-        self.setreadbtn["text"] = "Save"
-        self.setreadbtn["command"] = self.write_config
-
-    def path_dialog(self):
-        path = filedialog.askdirectory()
-
-        print(path)
-        # file dialog returns a tuple for a path (?)
-        if not path == () and not path == "":
-            self.pathvar.set(path)
-
-    def read_config(self):
-        if  not os.path.isfile(self.filepath):
-            print("ERROR: Not exists")
-            raise ValueError
-        with open(self.filepath, 'r') as file:
-            for sett in self.settings_list:
-                self.settings = json_load(file)[sett]
-
-    def write_config(self):
-        with open(self.filepath, 'w') as file:
-            json_dump(self.settings, file)
-
-    def show_window(self):
-        pass
 
 class FileOptions(Frame):
     def __init__(self, parent=None):
