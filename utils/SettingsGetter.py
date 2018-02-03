@@ -36,7 +36,7 @@ class Settings(Toplevel):
 
         self.start_freq = Entry(self)
         self.stop_freq = Entry(self)
-        self.steps_freq = Entry(self)
+        self.step_freq = Entry(self)
         self.time_offset = Entry(self)
         self.power = Entry(self)
 
@@ -59,9 +59,9 @@ class Settings(Toplevel):
         self.cancel_btn["command"] = self.cancel
 
 
-        self.save_btn.grid(row=4, column=1, sticky=tk.E+tk.W)
-        self.ok_btn.grid(row=4, column=2,sticky=tk.E+tk.W)
-        self.cancel_btn.grid(row=4, column=3,sticky=tk.E+tk.W)
+        self.save_btn.grid(row=5, column=1, sticky=tk.E+tk.W)
+        self.ok_btn.grid(row=5, column=2,sticky=tk.E+tk.W)
+        self.cancel_btn.grid(row=5, column=3,sticky=tk.E+tk.W)
 
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -71,7 +71,7 @@ class Settings(Toplevel):
     def init_set(self):
         if self.cur_set is None:
             return
-        for item in ['start_freq', 'stop_freq', 'steps_freq', 'time_offset', 'power']:
+        for item in ['start_freq', 'stop_freq', 'step_freq', 'time_offset', 'power']:
             if item in self.cur_set:
                 e = getattr(self, item)
                 e.delete(0,tk.END)
@@ -115,7 +115,7 @@ class Settings(Toplevel):
         cur_set = {
                     'start_freq' : self.start_freq.get(),
                     'stop_freq' : self.stop_freq.get(),
-                    'steps_freq' : self.steps_freq.get(),
+                    'step_freq' : self.step_freq.get(),
                     'time_offset' : int(self.time_offset .get()),
                     'power' : self.power.get()
                     }
