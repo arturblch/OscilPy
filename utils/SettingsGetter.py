@@ -3,20 +3,25 @@ from tkinter import messagebox
 from tkinter import Toplevel, Label, Entry, Frame, Button, E, W
 import json
 import os
+import re
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
+
 
 class Settings(Toplevel):
-    def __init__(self, parent=None, old_set=None):
+    def __init__(self, parent=None, old_set=None, save_dir=None):
         super().__init__(parent)
         self.transient(parent)
 
         self.parent = parent
+        self.cur_set = old_set
+        if save_dir:
+            self.save_dir = save_dir
+        else:
+            self.save_dir = os.path.dirname(os.path.realpath(__file__))
 
         self.title("Settings")
         self.resizable(False, False)
 
-        self.cur_set = old_set
 
         self.initial_focus = self.body()
         self.init_set()
@@ -112,12 +117,13 @@ class Settings(Toplevel):
         return 1
 
     def get_cur_set(self):
+        p = re.compile('(\d+)\s*(\w+)')
         cur_set = {
-                    'start_freq' : self.start_freq.get(),
-                    'stop_freq' : self.stop_freq.get(),
-                    'step_freq' : self.step_freq.get(),
+                    'start_freq' : p.match(self.start_freq.get()).groups(),
+                    'stop_freq' : p.match(self.stop_freq.get()).groups(),
+                    'step_freq' : p.match(self.step_freq.get()).groups(),
                     'time_offset' : int(self.time_offset .get()),
-                    'power' : self.power.get()
+                    'power' : p.match(self.power.get()).groups()
                     }
         return cur_set
 
@@ -125,16 +131,17 @@ class Settings(Toplevel):
         if not self.validate():
             self.initial_focus.focus_set() # put focus back
             return
-        with open('settrings.json', 'w') as f:
+        save_path = os.path.join(self.save_dir, 'settrings.json')
+        with open(save_path, 'w') as f:
                 json.dump(self.cur_set, f)
         messagebox.showinfo(
                 "Save",
-                "settings.json save at {}".format(dir_path),
+                "settings.json save at {}".format(self.save_dir),
                 parent = self
             )
 
-def get_settings(parent=None, old_set=None):
-    dialog = Settings(parent, old_set)
+def get_settings(parent=None, old_set=None, save_dir=None):
+    dialog = Settings(parent, old_set, save_dir)
     return dialog.cur_set
 
 if __name__ == '__main__':

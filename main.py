@@ -3,7 +3,7 @@ import os
 import time
 import sys
 import platform
-from json import load as json_load, dump as json_dump
+import json
 
 import visa
 from pyvisa.errors import VisaIOError
@@ -202,12 +202,13 @@ class FileOptions(Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
-# TODO Add load settings
+# TODO add units
 class TaskControl(ttk.Frame):
-    def __init__(self, root, parent):
-        ttk.Frame.__init__(self, root)
-        self.root = root
+    def __init__(self, parent):
+        ttk.Frame.__init__(self, parent.root)
+        self.root = parent.root
         self.parent = parent
+        self.log = parent.log
         self.settings = None
 
         self.settingbtn = ttk.Button(self)
@@ -221,9 +222,18 @@ class TaskControl(ttk.Frame):
         self.settingbtn.grid(row=0, column=0)
         self.startbtn.grid(row=0, column=1)
 
+    def load_settings(self):
+        if os.path.isfile('settings.json'):
+            with open('settings.json', 'r') as f:
+                self.settings = json.load(f)
+                self.log.info('Settings load sucsesfully')
+        else:
+            self.log.info('Settings missing')
+
     def get_settings(self):
+        dir_path = os.path.dirname(os.path.realpath(__file__))
         self.settings = SettingsGetter.get_settings(
-            self.root, self.settings)
+            self.root, self.settings, save_dir=dir_path)
 
     def start_cur_task(self):
         task = Task_1(settings)
@@ -248,6 +258,7 @@ class Oscil_GUI:
 
         self.init_gui()                     # Создаем форму
 
+        self.task_ctrl.load_settings()
         for dev_view in self.dev_views.values():  # Обновляем список устройств
             dev_view.refresh_devices()            # для каждого вида
 
@@ -259,7 +270,7 @@ class Oscil_GUI:
                 self.dev_views[dev_name] = DeviceView(
                     self.root, self.dm, device, self.log)
 
-        self.toolbar = TaskControl(self.root, self)
+        self.task_ctrl = TaskControl(self)
 
         self.console = ConsoleView(self.root)
         wh = ConsoleHandler(self.console)   # Подписываем консоль к логеру
@@ -268,7 +279,7 @@ class Oscil_GUI:
         self.fileoptions.pack(side="top", fill="both")
         for dev in self.dev_views.values():
             dev.pack(side="top", fill="both")
-        self.toolbar.pack(side="top", fill="both")
+        self.task_ctrl.pack(side="top", fill="both")
         self.console.pack(side="top", fill="both")
 
     def exit(self):
