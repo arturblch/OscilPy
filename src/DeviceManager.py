@@ -1,12 +1,14 @@
 import pyvisa
 from pyvisa.errors import VisaIOError
 
+
 class Device:
     def __init__(self, rm, name, log):
         self.rm = rm
-        self.name = name         # Наименование устройства    
-        self.addr = None         # Адресс по которому находится устройство(None если не открыто)
-        self.is_open  = False    # Флаг показывающий открыто ли устройство
+        self.name = name         # Наименование устройства
+        # Адресс по которому находится устройство(None если не открыто)
+        self.addr = None
+        self.is_open = False    # Флаг показывающий открыто ли устройство
         self.dev_obj = None      # Объект открытого устройства
 
         self.log = log
@@ -14,7 +16,7 @@ class Device:
     def set_addr(self, new_addr):
         if self.addr != new_addr:
             self.addr = new_addr
-            self.log.info('Set "' + new_addr +'" address for ' + self.name)
+            self.log.info('Set "' + new_addr + '" address for ' + self.name)
 
     def open(self):
         if not self.is_open:
@@ -38,17 +40,17 @@ class Device:
 
     def close(self):
         if self.is_open:
-                try:
-                    self.dev_obj.close()                # Закрываем соединение
-                    self.log.info(self.name + " closed")
-                    self.dev_obj = None
-                    self.is_open = False
+            try:
+                self.dev_obj.close()                # Закрываем соединение
+                self.log.info(self.name + " closed")
+                self.dev_obj = None
+                self.is_open = False
 
-                except OSError:
-                    self.log.error("Can't do this")
+            except OSError:
+                self.log.error("Can't do this")
 
-                except VisaIOError:
-                    self.log.error("Timeout or divice not connnected")
+            except VisaIOError:
+                self.log.error("Timeout or divice not connnected")
         else:
             self.log.info("Already closed")
 
@@ -70,9 +72,13 @@ class Device:
             self.log.info("Device - " + response.split(',')[1])
         self.close()
 
+
+class DeviceManager:
+
+
 ''' DeviceManager хранит объект ResourceManager(pyvisa) и перечень устройств
 '''
-class DeviceManager:
+
     def __init__(self, log):
         self.devices = dict()
         self.rm = pyvisa.ResourceManager()
@@ -109,7 +115,10 @@ class DeviceManager:
         return self.rm.list_resources()
 
     def get_device(self, dev_name):
-        return self.devices.get(dev_name)
+        try:
+            return self.devices[dev_name]
+        except KeyError:
+            self.log.error('Device not found')
 
     def get_all_devices(self):
         return self.devices

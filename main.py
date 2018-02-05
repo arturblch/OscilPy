@@ -74,25 +74,30 @@ DEV_LIST = ['oscil', 'generator']
 
 
 class Task_1:
-    def __init__(self, settings):
+    def __init__(self, settings, log):
         self.is_stop = False
         self.is_pause = False
         self.settings = settings
+        self.log = log
 
     def start(self, oscil, generator, save_loc):
-        oscil.open()                    # Открываем устройства
-        generator.open()
+        self.log.error('Start task')
+        try:
+            oscil.open()                    # Открываем устройства
+            generator.open()
+
+        except ValueError:
+            self.log.error('Stop task')
+            return
+
 
         oscil.write("factory")          # Сброс настроек
         generator.write("*RST")
 
         generator.write("FREQ:STEP:MODE USER")
-        generator.write("FREQ:STEP {}".format(
-            ' '.join(map(str, self.settings['stop_freq']))))
-        generator.write("FREQ {}".format(
-            ' '.join(map(str, self.settings['start_freq']))))
-        generator.write("SOUR:POW:POW {}".format(
-            ' '.join(map(str, self.settings['power']))))
+        generator.write("FREQ:STEP {}MHz".format(self.settings['step_freq']))
+        generator.write("FREQ {}MHz".format(self.settings['start_freq']))
+        generator.write("SOUR:POW:POW {}dBm".format(self.settings['power']))
 
         # Источник сигнала
         oscil.write("MEASU:MEAS1:SOUrce CH1")
@@ -106,7 +111,7 @@ class Task_1:
 
         try:
             with open(save_loc, "w") as file:
-                file.write(";".join(["Gen_freq", "Ch_1", "Ch_2"]) + '\n')
+                file.write(";".join(["Gen_freq MHz", "Ch_1 V", "Ch_2 V"]) + '\n')
                 # generator.write("OUTP ON")
                 time.sleep(self.settings['time_offset'])
                 value_ch1 = float(oscil.query("MEASU:MEAS1:VALue?").split()[1])                 # Возврат значения
@@ -133,10 +138,10 @@ class Task_1:
             generator.write("OUTP OFF")
 
     def gen_freq(self):
-        return range(int(self.settings['start_freq'][0]) + int(self.settings['stop_freq'][0]),
-                                      int(self.settings['stop_freq'][0]) +
-                                      int(self.settings['stop_freq'][0]),
-                                      int(self.settings['stop_freq'][0]))
+        return range(int(self.settings['start_freq']) + int(self.settings['stop_freq']),
+                                      int(self.settings['stop_freq']) +
+                                      int(self.settings['stop_freq']),
+                                      int(self.settings['stop_freq']))
 
     def stop(self):
         self.is_stop = True
@@ -202,7 +207,6 @@ class FileOptions(Frame):
         self.filevar.set(
             "Oscil_gui_" + time.strftime("%d_%m_%Y_") + str(self.counter) + ".csv")
 
-# TODO add units
 class TaskControl(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self, parent.root)
@@ -236,11 +240,14 @@ class TaskControl(ttk.Frame):
             self.root, self.settings, save_dir=dir_path)
 
     def start_cur_task(self):
-        task = Task_1(settings)
-        oscil = self.parent.dm.get_device("oscil")
-        generator = self.parent.dm.get_device("generator")
-        save_loc = self.parent.fileoptions.get_filepath()
-        task.start(oscil, generator, save_loc)
+        if self.settings
+            task = Task_1(self.settings, self.log)
+            oscil = self.parent.dm.get_device("oscil")
+            generator = self.parent.dm.get_device("generator")
+            save_loc = self.parent.fileoptions.get_filepath()
+            task.start(oscil, generator, save_loc)
+        else:
+            self.log.info('Settings missing')
 
 
 class Oscil_GUI:

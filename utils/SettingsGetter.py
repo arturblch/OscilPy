@@ -33,11 +33,11 @@ class Settings(Toplevel):
 
     def body(self):
         
-        Label(self, text='Start Freq:').grid(row=0, column=0)
-        Label(self, text='Stop Freq').grid(row=1, column=0)
-        Label(self, text='Step Freq').grid(row=2, column=0)
-        Label(self, text='Time_offset').grid(row=3, column=0)
-        Label(self, text='Power').grid(row=4, column=0)
+        Label(self, text='Start Freq, MHz:').grid(row=0, column=0)
+        Label(self, text='Stop Freq, MHz').grid(row=1, column=0)
+        Label(self, text='Step Freq, MHz').grid(row=2, column=0)
+        Label(self, text='Time_offset, s').grid(row=3, column=0)
+        Label(self, text='Power, dBm').grid(row=4, column=0)
 
         self.start_freq = Entry(self)
         self.stop_freq = Entry(self)
@@ -117,13 +117,12 @@ class Settings(Toplevel):
         return 1
 
     def get_cur_set(self):
-        p = re.compile('(\d+)\s*(\w+)')
         cur_set = {
-                    'start_freq' : p.match(self.start_freq.get()).groups(),
-                    'stop_freq' : p.match(self.stop_freq.get()).groups(),
-                    'step_freq' : p.match(self.step_freq.get()).groups(),
+                    'start_freq' :  float(self.start_freq.get()),
+                    'stop_freq' :   float(self.stop_freq.get()),
+                    'step_freq' :   float(self.step_freq.get()),
                     'time_offset' : int(self.time_offset .get()),
-                    'power' : p.match(self.power.get()).groups()
+                    'power' :       float(self.power.get())
                     }
         return cur_set
 
@@ -135,7 +134,7 @@ class Settings(Toplevel):
         with open(save_path, 'w') as f:
                 json.dump(self.cur_set, f)
         messagebox.showinfo(
-                "Save",
+                "Save done",
                 "settings.json save at {}".format(self.save_dir),
                 parent = self
             )
