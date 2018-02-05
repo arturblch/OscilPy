@@ -86,62 +86,62 @@ class Task_1:
             oscil.open()                    # Открываем устройства
             generator.open()
 
-        except ValueError:
-            self.log.error('Stop task')
-            return
+            # oscil.write("factory")          # Сброс настроек
+            generator.write("*RST")
 
+            generator.write("FREQ:STEP:MODE USER")
+            generator.write("FREQ:STEP {}MHz".format(self.settings['step_freq']))
+            generator.write("FREQ {}MHz".format(self.settings['start_freq']))
+            generator.write("SOUR:POW:POW {}dBm".format(self.settings['power']))
 
-        oscil.write("factory")          # Сброс настроек
-        generator.write("*RST")
+            # Источник сигнала
+            oscil.write("MEASU:MEAS1:SOUrce CH1")
+            oscil.write("MEASU:MEAS2:SOUrce CH2")
+            # Тип измерения (Пиковое)
+            oscil.write("MEASU:MEAS1:TYPe PK2PK")
+            oscil.write("MEASU:MEAS2:TYPe PK2PK")
+            # Включить
+            # oscil.write("MEASU:MEAS1:State ON")   # Для MDO
+            # oscil.write("MEASU:MEAS2:State ON")
+            oscil.write("SELECT:CH1 ON")            # Для TDS
+            oscil.write("SELECT:CH2 ON")
 
-        generator.write("FREQ:STEP:MODE USER")
-        generator.write("FREQ:STEP {}MHz".format(self.settings['step_freq']))
-        generator.write("FREQ {}MHz".format(self.settings['start_freq']))
-        generator.write("SOUR:POW:POW {}dBm".format(self.settings['power']))
+            oscil.write("AUTOR:SETT BOTH")
+            oscil.write("AUTORANGE:STATE ON")
+            time.sleep(10)
 
-        # Источник сигнала
-        oscil.write("MEASU:MEAS1:SOUrce CH1")
-        oscil.write("MEASU:MEAS2:SOUrce CH2")
-        # Тип измерения (Пиковое)
-        oscil.write("MEASU:MEAS1:TYPe PK2PK")
-        oscil.write("MEASU:MEAS2:TYPe PK2PK")
-        # Включить
-        oscil.write("MEASU:MEAS1:State ON")
-        oscil.write("MEASU:MEAS2:State ON")
-
-        try:
             with open(save_loc, "w") as file:
                 file.write(";".join(["Gen_freq MHz", "Ch_1 V", "Ch_2 V"]) + '\n')
                 # generator.write("OUTP ON")
-                time.sleep(self.settings['time_offset'])
-                value_ch1 = float(oscil.query("MEASU:MEAS1:VALue?").split()[1])                 # Возврат значения
-                value_ch2 = float(oscil.query("MEASU:MEAS2:VALue?").split()[1])
 
-                file.write(
-                    ";".join([self.settings['start_freq'], value_ch1, value_ch2]) + '\n')
-
-                for gen_freq in self.gen_freq():
-                    if self.is_stop:
-                        break
-                    while self.is_pause:
-                        time.sleep(0.2)
-                    generator.write("FREQ UP")
+                for freq in self.gen_freq():
+                    self.log.info('Измерения на частоте {}'.format(freq))
+                    if freq != self.settings['start_freq']:
+                        generator.write("FREQ UP")
                     time.sleep(self.settings['time_offset'])
-                    value_ch1 = oscil.query("MEASU:MEAS1:VALue?").split()[1]                   # Возврат значения
-                    value_ch2 = oscil.query("MEASU:MEAS2:VALue?").split()[1]
+                    value_ch1 = float(oscil.query("MEASU:MEAS1:VALue?").split()[1])                   # Возврат значения
+                    value_ch2 = float(oscil.query("MEASU:MEAS2:VALue?").split()[1])
 
                     file.write(
-                        ";".join([str(gen_freq), str(value_ch1), str(value_ch2)]) + '\n')
+                        "{0:.3f};{1:.3f};{2:.3f};\n".format(freq, value_ch1, value_ch2))
+        except ValueError:
+            self.log.error('Stop task: Valuer error')
+        except VisaIOError as e:
+            self.log.error('Stop task: Visa IO exception')
+            self.log.info('oscil - {}'.format(oscil.query('allev?')))
+            self.log.info('generator - {}'.format(generator.query('SYST:ERR?')))
+            raise e
         except Exception as e:
+            self.log.error('Unnown error')
             raise e
         finally:
             generator.write("OUTP OFF")
 
     def gen_freq(self):
-        return range(int(self.settings['start_freq']) + int(self.settings['stop_freq']),
-                                      int(self.settings['stop_freq']) +
-                                      int(self.settings['stop_freq']),
-                                      int(self.settings['stop_freq']))
+        r = self.settings['start_freq']
+        while r <=  self.settings['stop_freq']:
+            yield r
+            r +=  self.settings['step_freq']
 
     def stop(self):
         self.is_stop = True
@@ -240,7 +240,7 @@ class TaskControl(ttk.Frame):
             self.root, self.settings, save_dir=dir_path)
 
     def start_cur_task(self):
-        if self.settings
+        if self.settings:
             task = Task_1(self.settings, self.log)
             oscil = self.parent.dm.get_device("oscil")
             generator = self.parent.dm.get_device("generator")

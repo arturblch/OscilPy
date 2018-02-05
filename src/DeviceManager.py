@@ -58,8 +58,9 @@ class Device:
         response = None
         try:
             response = self.dev_obj.query(command)
-        except VisaIOError:
-            self.log.error("Timeout or divice not connnected")
+        except VisaIOError as e:
+            self.log.error("Timeout or divice {} not connnected".format(self.name))
+            raise e
         return response
 
     def write(self, command):
@@ -74,10 +75,8 @@ class Device:
 
 
 class DeviceManager:
-
-
-''' DeviceManager хранит объект ResourceManager(pyvisa) и перечень устройств
-'''
+    ''' DeviceManager хранит объект ResourceManager(pyvisa) и перечень устройств
+    '''
 
     def __init__(self, log):
         self.devices = dict()

@@ -130,7 +130,7 @@ class Settings(Toplevel):
         if not self.validate():
             self.initial_focus.focus_set() # put focus back
             return
-        save_path = os.path.join(self.save_dir, 'settrings.json')
+        save_path = os.path.join(self.save_dir, 'settings.json')
         with open(save_path, 'w') as f:
                 json.dump(self.cur_set, f)
         messagebox.showinfo(
